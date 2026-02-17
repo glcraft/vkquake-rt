@@ -246,6 +246,7 @@ void BuildTris (void)
 		for (j = 0; j < bestlen; j++)
 			used[besttris[j]] = 1;
 
+		assert(numcommands >= 0 && numcommands < 8192);
 		if (besttype == 1)
 			commands[numcommands++] = (bestlen + 2);
 		else
