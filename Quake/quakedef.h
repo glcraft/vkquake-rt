@@ -295,7 +295,8 @@ static inline int FindFirstBitNonZero (const uint32_t mask)
 #ifdef _WIN32
     #define RG_USE_SURFACE_WIN32
 #else
-    #define RG_USE_SURFACE_XLIB
+    // #define RG_USE_SURFACE_XLIB
+    #define RG_USE_SURFACE_WAYLAND
 #endif
 #include <RTGL1/RTGL1.h>
 #define RT_RENDERER 1
