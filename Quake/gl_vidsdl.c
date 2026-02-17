@@ -475,6 +475,8 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, qboolean fu
 	SDL_ShowWindow (draw_context);
 	SDL_RaiseWindow (draw_context);
 
+	rgSetInitExtent(width, height);
+
 	vid.width = VID_GetCurrentWidth ();
 	vid.height = VID_GetCurrentHeight ();
 	vid.conwidth = vid.width & 0xFFFFFFF8;
