@@ -639,6 +639,8 @@ static void GL_InitInstance (void)
 	RgWin32SurfaceCreateInfo win32Info = {.hinstance = wmInfo.info.win.hinstance, .hwnd = wmInfo.info.win.window};
 #elif defined(RG_USE_SURFACE_XLIB)
 	RgXlibSurfaceCreateInfo x11Info = {.dpy = wmInfo.info.x11.display, .window = wmInfo.info.x11.window};
+#elif defined(RG_USE_SURFACE_WAYLAND)
+	RgWaylandSurfaceCreateInfo   waylandInfo = {.display = wmInfo.info.wl.display, .surface = wmInfo.info.wl.surface};
 #endif
 
 	const char pShaderPath[] = RT_OVERRIDEN_FOLDER "shaders/";
@@ -653,6 +655,8 @@ static void GL_InitInstance (void)
 		.pWin32SurfaceInfo = &win32Info,
 #elif defined(RG_USE_SURFACE_XLIB)
 		.pXlibSurfaceCreateInfo = &x11Info,
+#elif defined(RG_USE_SURFACE_WAYLAND)
+		.pWaylandSurfaceCreateInfo = &waylandInfo,
 #endif
 		
 		.pfnPrint = RT_PrintMessage,
