@@ -107,6 +107,9 @@ srcs = [
 
 cc = meson.get_compiler('c')
 deps = [
+    cc.find_library('RayTracedGL1', required:true),
+    cc.find_library('ffx_fsr2_api_vk_x86_64', required:true),
+    cc.find_library('ffx_fsr2_api_x86_64', required:true),
     cc.find_library('m', required : false),
     cc.find_library('dl', required : false),
     dependency('threads'),
