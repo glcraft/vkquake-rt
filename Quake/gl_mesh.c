@@ -290,69 +290,14 @@ void BuildTris (void)
 static void GL_MakeAliasModelDisplayLists_VBO (void);
 static void GLMesh_LoadVertexBuffer (qmodel_t *m, const aliashdr_t *hdr);
 
-/*
-================
-GL_MakeAliasModelDisplayLists
-================
-*/
-void GL_MakeAliasModelDisplayLists (qmodel_t *m, aliashdr_t *hdr)
-{
-	int         i, j;
-	int        *cmds;
-	trivertx_t *verts;
-	int         count;    // johnfitz -- precompute texcoords for padded skins
-	int        *loadcmds; // johnfitz
 
-	aliasmodel = m;
-	paliashdr = hdr; // (aliashdr_t *)Mod_Extradata (m);
-
-	// johnfitz -- generate meshes
-	Con_DPrintf2 ("meshing %s...\n", m->name);
-	BuildTris ();
-
-	// save the data out
-
-	paliashdr->poseverts = numorder;
-
-	cmds = (int *)Mem_Alloc (numcommands * 4);
-	paliashdr->commands = (byte *)cmds - (byte *)paliashdr;
-
-	// johnfitz -- precompute texcoords for padded skins
-	loadcmds = commands;
-	while (1)
-	{
-		*cmds++ = count = *loadcmds++;
-
-		if (!count)
-			break;
-
-		if (count < 0)
-			count = -count;
-
-		do
-		{
-			*(float *)cmds++ = (*(float *)loadcmds++);
-			*(float *)cmds++ = (*(float *)loadcmds++);
-		} while (--count);
-	}
-	// johnfitz
-
-	verts = (trivertx_t *)Mem_Alloc (paliashdr->numposes * paliashdr->poseverts * sizeof (trivertx_t));
-	paliashdr->posedata = (byte *)verts - (byte *)paliashdr;
-	for (i = 0; i < paliashdr->numposes; i++)
-		for (j = 0; j < numorder; j++)
-			*verts++ = poseverts[i][vertexorder[j]];
-
-	// ericw
-	GL_MakeAliasModelDisplayLists_VBO ();
-}
 
 unsigned int r_meshindexbuffer = 0;
 unsigned int r_meshvertexbuffer = 0;
 
 /*
 ================
-GL_MakeAliasModelDisplayLists_VBO
+GL_MakeAliasModelDisplayLists
 
 Saves data needed to build the VBO for this model on the hunk. Afterwards this
 is copied to Mod_Extradata.
@@ -360,14 +305,21 @@ is copied to Mod_Extradata.
 Original code by MH from RMQEngine
 ================
 */
-void GL_MakeAliasModelDisplayLists_VBO (void)
+static uint32_t AliasMeshHash (const void *const userdata)
 {
+	const aliasmesh_t *const mesh = userdata; 
+	uint32_t vertindex = mesh->vertindex;
+	return HashCombine (HashInt32 (&vertindex), HashCombine (HashFloat (&mesh->st[0]), HashFloat (&mesh->st[0])));
+}
+
+void GL_MakeAliasModelDisplayLists (qmodel_t *m, aliashdr_t *paliashdr){
 	int             i, j;
 	int             maxverts_vbo;
 	trivertx_t     *verts;
 	unsigned short *indexes;
 	aliasmesh_t    *desc;
 
+	Con_DPrintf2 ("meshing %s...\n", m->name);
 	// first, copy the verts onto the hunk
 	verts = (trivertx_t *)Mem_Alloc (paliashdr->numposes * paliashdr->numverts * sizeof (trivertx_t));
 	paliashdr->vertexes = (byte *)verts - (byte *)paliashdr;
@@ -378,6 +330,8 @@ void GL_MakeAliasModelDisplayLists_VBO (void)
 	// there can never be more than this number of verts and we just put them all on the hunk
 	maxverts_vbo = pheader->numtris * 3;
 	desc = (aliasmesh_t *)Mem_Alloc (sizeof (aliasmesh_t) * maxverts_vbo);
+	hash_map_t *vertex_to_index_map = HashMap_Create (aliasmesh_t, unsigned short, &AliasMeshHash);
+	HashMap_Reserve (vertex_to_index_map, maxverts_vbo);
 
 	// there will always be this number of indexes
 	indexes = (unsigned short *)Mem_Alloc (sizeof (unsigned short) * maxverts_vbo);
@@ -387,12 +341,10 @@ void GL_MakeAliasModelDisplayLists_VBO (void)
 	pheader->numindexes = 0;
 	pheader->numverts_vbo = 0;
 
-	for (i = 0; i < pheader->numtris; i++)
+for (i = 0; i < pheader->numtris; i++)
 	{
 		for (j = 0; j < 3; j++)
 		{
-			int v;
-
 			// index into hdr->vertexes
 			unsigned short vertindex = triangles[i].vertindex[j];
 
@@ -404,34 +356,34 @@ void GL_MakeAliasModelDisplayLists_VBO (void)
 			if (!triangles[i].facesfront && stverts[vertindex].onseam)
 				s += pheader->skinwidth / 2;
 
-			// see does this vert already exist
-			for (v = 0; v < pheader->numverts_vbo; v++)
-			{
-				// it could use the same xyz but have different s and t
-				if (desc[v].vertindex == vertindex && (int)desc[v].st[0] == s && (int)desc[v].st[1] == t)
-				{
-					// exists; emit an index for it
-					indexes[pheader->numindexes++] = v;
+			const aliasmesh_t mesh = {
+				.st = {s, t},
+				.vertindex = vertindex,
+			};
 
-					// no need to check any more
-					break;
-				}
-			}
-
-			if (v == pheader->numverts_vbo)
+			// Check if this vert already exists
+			unsigned short	index;
+			unsigned short *found_index;
+			if ((found_index = HashMap_Lookup (unsigned short, vertex_to_index_map, &mesh)))
+				index = *found_index;
+			else
 			{
 				// doesn't exist; emit a new vert and index
-				indexes[pheader->numindexes++] = pheader->numverts_vbo;
-
+				index = pheader->numverts_vbo;
+				HashMap_Insert (vertex_to_index_map, &mesh, &index);
 				desc[pheader->numverts_vbo].vertindex = vertindex;
 				desc[pheader->numverts_vbo].st[0] = s;
 				desc[pheader->numverts_vbo++].st[1] = t;
 			}
+
+			indexes[pheader->numindexes++] = index;
 		}
 	}
 
+	HashMap_Destroy (vertex_to_index_map);
+
 	// upload immediately
-	GLMesh_LoadVertexBuffer (aliasmodel, pheader);
+	GLMesh_LoadVertexBuffer (m, pheader);
 }
 
 #define NUMVERTEXNORMALS 162

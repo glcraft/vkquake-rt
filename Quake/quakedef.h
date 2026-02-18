@@ -291,6 +291,7 @@ static inline int FindFirstBitNonZero (const uint32_t mask)
 #include "server.h"
 
 #include "platform.h"
+#include "hash_map.h"
 
 #ifdef _WIN32
     #define RG_USE_SURFACE_WIN32
