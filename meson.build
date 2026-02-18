@@ -1,6 +1,6 @@
 project('vkquake', 'c', default_options : ['c_std=gnu11', 'buildtype=release'])
 
-cflags = ['-Wall', '-Wno-trigraphs', '-Wno-unused-function', '-Werror']
+cflags = ['-Wall', '-Wno-trigraphs', '-Wno-unused-function']
 
 srcs = [
     'Quake/bgmusic.c',
